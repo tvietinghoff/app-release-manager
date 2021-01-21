@@ -33,6 +33,7 @@ import java.util.*;
 @Slf4j
 public class ApkPublisher implements Publisher {
 
+    private static final String MIME_TYPE_MAPPING = "application/octet-stream";
     private static final String MIME_TYPE_APK = "application/vnd.android.package-archive";
     protected final CommandLineArguments arguments;
 
@@ -120,7 +121,16 @@ public class ApkPublisher implements Publisher {
             log.info("Uploading apk file...");
             AbstractInputStreamContent apkContent = new FileContent(MIME_TYPE_APK, apkFile.toFile());
             Apk apk = publisher.edits().apks().upload(packageName, editId, apkContent).execute();
-            log.info("Apk uploaded. Version Code: [{}]", apk.getVersionCode());
+            Integer versionCode = apk.getVersionCode();
+            log.info("Apk uploaded. Version Code: [{}]", versionCode);
+
+            if (mappingFile != null) {
+                log.info("Uploading mapping file...");
+                AbstractInputStreamContent mappingContent = new FileContent(MIME_TYPE_MAPPING, mappingFile.toFile());
+                DeobfuscationFilesUploadResponse mapping =
+                        publisher.edits().deobfuscationfiles().upload(packageName, editId, versionCode, "proguard", mappingContent).execute();
+                log.info("Mapping file uploaded. Type: [{}]", mapping.getDeobfuscationFile().getSymbolType());
+            }
 
             // create a release on track
             log.info("Creating a release on track: [{}]", trackName);

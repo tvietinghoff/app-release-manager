@@ -25,6 +25,12 @@ public class CommandLineArguments {
     @Option(name = "-notesFile", forbids = "-notes", usage = "(optional) Release notes from file")
     private String notesPath;
 
+    @Option(name = "-mappingFile", usage = "(optional) Deobfuscation (mapping) file")
+    private String mappingFile;
+
+    @Option(name = "-countries", usage = "(optional) List of countries for release (comma-separated two-letter codes)")
+    private String countries;
+
     public String getJsonKeyPath() {
         return jsonKeyPath;
     }
@@ -76,4 +82,8 @@ public class CommandLineArguments {
     public String getPackageName() {
         return packageName;
     }
+
+    public String getMappingFile() { return mappingFile; }
+
+    public String getCountries() { return countries; }
 }
