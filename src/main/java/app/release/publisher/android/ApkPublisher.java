@@ -6,6 +6,7 @@ import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport;
 import com.google.api.client.http.AbstractInputStreamContent;
 import com.google.api.client.http.FileContent;
 import com.google.api.client.json.jackson2.JacksonFactory;
+import com.google.api.client.util.Charsets;
 import com.google.api.services.androidpublisher.AndroidPublisher;
 import com.google.api.services.androidpublisher.AndroidPublisherScopes;
 import com.google.api.services.androidpublisher.model.*;
@@ -18,14 +19,13 @@ import net.dongliu.apk.parser.bean.ApkMeta;
 
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.GeneralSecurityException;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Locale;
+import java.util.*;
+
 
 /**
  * Uploads android apk files to Play Store.
@@ -34,7 +34,7 @@ import java.util.Locale;
 public class ApkPublisher implements Publisher {
 
     private static final String MIME_TYPE_APK = "application/vnd.android.package-archive";
-    private final CommandLineArguments arguments;
+    protected final CommandLineArguments arguments;
 
     public ApkPublisher(CommandLineArguments arguments) {
         this.arguments = arguments;
@@ -43,40 +43,69 @@ public class ApkPublisher implements Publisher {
     @Override
     public void publish() throws IOException, GeneralSecurityException {
 
+        Path apkFile = FileSystems.getDefault().getPath(arguments.getFile()).normalize();
+        Path mappingFile = arguments.getMappingFile() == null ? null :
+                FileSystems.getDefault().getPath(arguments.getMappingFile()).normalize();
+
+        CountryTargeting countryTargeting = arguments.getCountries() == null ? null :
+                new CountryTargeting()
+                        .setCountries(Arrays.asList(arguments.getCountries().split(",")))
+                        .setIncludeRestOfWorld(false);
+
+        ArrayList<LocalizedText> releaseNotes = new ArrayList<>();
+        // load release notes
+        log.info("Loading release notes...");
+        if (arguments.getNotesPath() != null) {
+            Path notesFile = FileSystems.getDefault().getPath(arguments.getNotesPath()).normalize();
+            if (arguments.getNotesPath().endsWith(".json")) {
+                releaseNotes.addAll(getReleaseNotesFromJson(notesFile));
+            } else {
+                String notesContent = new String(Files.readAllBytes(notesFile));
+                releaseNotes.add(new LocalizedText().setLanguage(Locale.US.toString()).setText(notesContent));
+            }
+        } else if (arguments.getNotes() != null) {
+            releaseNotes.add(new LocalizedText().setLanguage(Locale.US.toString()).setText(arguments.getNotes()));
+        }
+
+        publishSingleApk(apkFile, mappingFile, countryTargeting, releaseNotes, arguments.getTrackName());
+    }
+
+    protected Collection<LocalizedText> getReleaseNotesFromJson(Path notesFile) throws IOException {
+        return JacksonFactory.getDefaultInstance().createJsonParser(
+                new InputStreamReader(new FileInputStream(notesFile.toFile()), Charsets.UTF_8))
+                .parseArray(ArrayList.class, LocalizedText.class);
+    }
+
+    private GoogleCredentials getGoogleCredentials() throws IOException {
         // load key file credentials
         log.info("Loading account credentials...");
         Path jsonKey = FileSystems.getDefault().getPath(arguments.getJsonKeyPath()).normalize();
-        GoogleCredentials credentials = ServiceAccountCredentials.fromStream(new FileInputStream(jsonKey.toFile())).createScoped(Collections.singleton(AndroidPublisherScopes.ANDROIDPUBLISHER));
+        return ServiceAccountCredentials.fromStream(
+                new FileInputStream(jsonKey.toFile()))
+                .createScoped(Collections.singleton(AndroidPublisherScopes.ANDROIDPUBLISHER));
+    }
+
+    protected void publishSingleApk(Path apkFile, Path mappingFile, CountryTargeting countryTargeting, List<LocalizedText> releaseNotes, String trackName) throws IOException, GeneralSecurityException {
         // load apk file info
         log.info("Loading apk file information...");
-        Path apkFile = FileSystems.getDefault().getPath(arguments.getFile()).normalize();
+
         ApkFile apkInfo = new ApkFile(apkFile.toFile());
         ApkMeta apkMeta = apkInfo.getApkMeta();
         final String applicationName = arguments.getAppName() == null ? apkMeta.getName() : arguments.getAppName();
         final String packageName = apkMeta.getPackageName();
+        String versionName = apkMeta.getVersionName();
         log.info("ApplicationPublisher Name: [{}]", apkMeta.getName());
         log.info("ApplicationPublisher Id: [{}]", apkMeta.getPackageName());
-        log.info("ApplicationPublisher Version Code: %d%n", apkMeta.getVersionCode());
-        log.info("ApplicationPublisher Version Name: [{}]", apkMeta.getVersionName());
+        log.info("ApplicationPublisher Version Code: [{}]", apkMeta.getVersionCode());
+        log.info("ApplicationPublisher Version Name: [{}]", versionName);
         apkInfo.close();
-
-        // load release notes
-        log.info("Loading release notes...");
-        List<LocalizedText> releaseNotes = new ArrayList<>();
-        if (arguments.getNotesPath() != null) {
-            Path notesFile = FileSystems.getDefault().getPath(arguments.getNotesPath()).normalize();
-            String notesContent = new String(Files.readAllBytes(notesFile));
-            releaseNotes.add(new LocalizedText().setLanguage(Locale.US.toString()).setText(notesContent));
-        } else if (arguments.getNotes() != null) {
-            releaseNotes.add(new LocalizedText().setLanguage(Locale.US.toString()).setText(arguments.getNotes()));
-        }
 
         // init publisher
         log.info("Initialising publisher service...");
         AndroidPublisher publisher = new AndroidPublisher.Builder(
                 GoogleNetHttpTransport.newTrustedTransport(),
                 JacksonFactory.getDefaultInstance(),
-                new HttpCredentialsAdapter(credentials)
+                new HttpCredentialsAdapter(getGoogleCredentials())
         ).setApplicationName(applicationName).build();
 
 
@@ -94,13 +123,14 @@ public class ApkPublisher implements Publisher {
             log.info("Apk uploaded. Version Code: [{}]", apk.getVersionCode());
 
             // create a release on track
-            log.info("Creating a release on track: [{}]", arguments.getTrackName());
-            TrackRelease release = new TrackRelease().setName("Automated publish").setStatus("completed")
-                    .setVersionCodes(Collections.singletonList((long) apk.getVersionCode()))
+            log.info("Creating a release on track: [{}]", trackName);
+            TrackRelease release = new TrackRelease().setName(versionName).setStatus("completed")
+                    .setVersionCodes(Collections.singletonList((long) versionCode))
+                    .setCountryTargeting(countryTargeting)
                     .setReleaseNotes(releaseNotes);
-            Track track = new Track().setReleases(Collections.singletonList(release)).setTrack(arguments.getTrackName());
-            publisher.edits().tracks().update(packageName, editId, arguments.getTrackName(), track).execute();
-            log.info("Release created on track: [{}]", arguments.getTrackName());
+            Track track = new Track().setReleases(Collections.singletonList(release)).setTrack(trackName);
+            publisher.edits().tracks().update(packageName, editId, trackName, track).execute();
+            log.info("Release created on track: [{}]", trackName);
 
             // commit edit
             log.info("Committing edit...");
