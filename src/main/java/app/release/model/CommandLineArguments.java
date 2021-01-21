@@ -13,10 +13,10 @@ public class CommandLineArguments {
     @Option(name = "-packageName", usage = "(optional) Provide with AAB File")
     private String packageName;
 
-    @Option(name = "-file", required = true, usage = "APK Or AAB file to be released")
+    @Option(name = "-file", required = true, usage = "APK Or AAB file to be released, or configuration file with all necessary information")
     private String file;
 
-    @Option(name = "-track", required = true, usage = "Release track to use. Eg. internal, alpha, beta or production")
+    @Option(name = "-track", usage = "Release track to use. Eg. internal, alpha, beta or production")
     private String trackName;
 
     @Option(name = "-notes", forbids = "-notesFile", usage = "(optional) Release notes")
