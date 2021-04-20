@@ -48,4 +48,6 @@ public class Configuration {
     public boolean unattended;
     @Key
     public boolean abortOnError;
+    @Key
+    public TrackStatus status = TrackStatus.completed;
 }

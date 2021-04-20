@@ -31,6 +31,10 @@ public class CommandLineArguments {
     @Option(name = "-countries", usage = "(optional) List of countries for release (comma-separated two-letter codes)")
     private String countries;
 
+    @SuppressWarnings("FieldMayBeFinal")
+    @Option(name = "status", usage = "(optional) target status of release [draft|completed] ")
+    private TrackStatus status = TrackStatus.completed;
+
     public String getJsonKeyPath() {
         return jsonKeyPath;
     }
@@ -86,4 +90,6 @@ public class CommandLineArguments {
     public String getMappingFile() { return mappingFile; }
 
     public String getCountries() { return countries; }
+
+    public TrackStatus getStatus() { return status; }
 }

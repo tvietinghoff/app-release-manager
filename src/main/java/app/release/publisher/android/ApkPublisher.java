@@ -1,6 +1,7 @@
 package app.release.publisher.android;
 
 import app.release.model.CommandLineArguments;
+import app.release.model.TrackStatus;
 import app.release.publisher.Publisher;
 import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport;
 import com.google.api.client.http.AbstractInputStreamContent;
@@ -68,7 +69,7 @@ public class ApkPublisher implements Publisher {
             releaseNotes.add(new LocalizedText().setLanguage(Locale.US.toString()).setText(arguments.getNotes()));
         }
 
-        publishSingleApk(apkFile, mappingFile, countryTargeting, releaseNotes, arguments.getTrackName());
+        publishSingleApk(apkFile, mappingFile, countryTargeting, releaseNotes, arguments.getTrackName(), arguments.getStatus());
     }
 
     protected Collection<LocalizedText> getReleaseNotesFromJson(Path notesFile) throws IOException {
@@ -86,7 +87,7 @@ public class ApkPublisher implements Publisher {
                 .createScoped(Collections.singleton(AndroidPublisherScopes.ANDROIDPUBLISHER));
     }
 
-    protected void publishSingleApk(Path apkFile, Path mappingFile, CountryTargeting countryTargeting, List<LocalizedText> releaseNotes, String trackName) throws IOException, GeneralSecurityException {
+    protected void publishSingleApk(Path apkFile, Path mappingFile, CountryTargeting countryTargeting, List<LocalizedText> releaseNotes, String trackName, TrackStatus status) throws IOException, GeneralSecurityException {
         // load apk file info
         log.info("Loading apk file information...");
 
@@ -134,7 +135,7 @@ public class ApkPublisher implements Publisher {
 
             // create a release on track
             log.info("Creating a release on track: [{}]", trackName);
-            TrackRelease release = new TrackRelease().setName(versionName).setStatus("completed")
+            TrackRelease release = new TrackRelease().setName(versionName).setStatus(status.name())
                     .setVersionCodes(Collections.singletonList((long) versionCode))
                     .setCountryTargeting(countryTargeting)
                     .setReleaseNotes(releaseNotes);

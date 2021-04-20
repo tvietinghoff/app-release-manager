@@ -96,7 +96,7 @@ public class MultiApkPublisher extends ApkPublisher {
                 }
             }
             try {
-                publishSingleApk(apkFile, mappingFile, countryTargeting, releaseNotes, configuration.track);
+                publishSingleApk(apkFile, mappingFile, countryTargeting, releaseNotes, configuration.track, configuration.status);
             } catch (Exception e) {
                 if (configuration.abortOnError) throw e;
             }
