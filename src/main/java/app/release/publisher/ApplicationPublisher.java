@@ -19,6 +19,10 @@ public class ApplicationPublisher {
             CommandLineArguments arguments = toCommandLineArguments(args);
             Publisher publisher = PublisherFactory.buildPublisher(arguments);
             publisher.publish();
+        } catch (CmdLineException e) {
+            log.error("ERROR: [{}]", e.getMessage());
+            e.getParser().printUsage(System.err);
+            System.exit(1);
         } catch (Exception e) {
             log.error("ERROR: [{}]", e.getMessage());
             e.printStackTrace();

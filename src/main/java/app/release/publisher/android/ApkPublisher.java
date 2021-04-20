@@ -153,6 +153,7 @@ public class ApkPublisher implements Publisher {
             String msg = "Operation Failed: " + e.getMessage();
 
             // abort
+            log.error(msg);
             log.error("Operation failed due to an error!, Deleting edit...");
             try {
                 publisher.edits().delete(packageName, editId).execute();
