@@ -16,6 +16,7 @@ import java.nio.file.Path;
 import java.security.GeneralSecurityException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Locale;
 
 
@@ -68,13 +69,15 @@ public class MultiApkPublisher extends ApkPublisher {
 
             String[] flavorCountries = configuration.countriesByFlavor.get(flavor);
 
-            CountryTargeting countryTargeting = new CountryTargeting()
-                    .setCountries(Arrays.asList(
-                            flavorCountries != null ? flavorCountries : configuration.countries
-                    ))
-                    .setIncludeRestOfWorld(false);
+            List<String> countries = Arrays.asList(
+                    flavorCountries != null ? flavorCountries : configuration.countries
+            );
 
-            log.info("ApplicationPublisher Effective country list is: [{}]", countryTargeting.getCountries());
+            CountryTargeting countryTargeting = countries.isEmpty() ? null :
+                    new CountryTargeting().setCountries(countries).setIncludeRestOfWorld(false);
+
+            if (countryTargeting != null)
+                log.info("ApplicationPublisher Effective country list is: [{}]", countryTargeting.getCountries());
 
             String releaseNotesFile = configuration.releaseNotesByFlavor.get(flavor);
             Path releaseNotesPath = baseFolder.resolve(releaseNotesFile != null ? releaseNotesFile :
@@ -86,7 +89,7 @@ public class MultiApkPublisher extends ApkPublisher {
 
             if (!configuration.unattended) {
                 if (!confirm("Publish %s\nMapping:%s\nCountries: %s\nRelease notes: %s\n\n(Y/N)?",
-                        apkFile, mappingFile, countryTargeting.getCountries().toString(),
+                        apkFile, mappingFile, countryTargeting != null ? countryTargeting.getCountries().toString() : "",
                         releaseNotes.toString())) {
                     log.info("Skipped [{}]", flavor);
                     continue;
