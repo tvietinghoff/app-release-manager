@@ -18,6 +18,7 @@ import lombok.extern.slf4j.Slf4j;
 import net.dongliu.apk.parser.ApkFile;
 import net.dongliu.apk.parser.bean.ApkMeta;
 
+import javax.annotation.Nullable;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -87,7 +88,7 @@ public class ApkPublisher implements Publisher {
                 .createScoped(Collections.singleton(AndroidPublisherScopes.ANDROIDPUBLISHER));
     }
 
-    protected void publishSingleApk(Path apkFile, Path mappingFile, CountryTargeting countryTargeting, List<LocalizedText> releaseNotes, String trackName, TrackStatus status) throws IOException, GeneralSecurityException {
+    protected void publishSingleApk(Path apkFile, Path mappingFile, @Nullable CountryTargeting countryTargeting, List<LocalizedText> releaseNotes, String trackName, TrackStatus status) throws IOException, GeneralSecurityException {
         // load apk file info
         log.info("Loading apk file information...");
 

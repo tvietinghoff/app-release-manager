@@ -21,6 +21,7 @@ public class Configuration {
                 "  mappingFilePattern='" + mappingFilePattern + "'\n" +
                 "  countries=" + Arrays.toString(countries) + '\n' +
                 "  countriesByFlavor=" + countriesByFlavor + '\n' +
+                "  locales=" + locales + '\n' +
                 '}';
     }
 
@@ -30,20 +31,40 @@ public class Configuration {
     public String[] flavors = {};
     @Key
     public String version = "";
-    @Key
-    public Map<String, String> releaseNotesByFlavor = new ArrayMap<>();
+    /**
+     * release notes or path to release notes JSON
+     */
     @Key
     public String releaseNotes = "";
+    /**
+     * release notes or path to release notes JSON by flavor
+     */
+    @Key
+    public Map<String, String> releaseNotesByFlavor = new ArrayMap<>();
+    /**
+     * base folder for all file names
+     */
     @Key
     public String baseFolder = null;
     @Key
     public String apkFilePattern = "de.{flavor}.app-{version}.apk";
     @Key
     public String mappingFilePattern = "de.{flavor}.app-{version}-mapping.txt";
+    /**
+     * used for country targeting
+     */
     @Key
     public String[] countries = {};
+    /**
+     * used for country targeting
+     */
     @Key
     public Map<String, String[]> countriesByFlavor = new ArrayMap<>();
+    /**
+     * used for release notes lookup
+     */
+    @Key
+    public Map<String, String[]> locales = new ArrayMap<>();
     @Key
     public boolean unattended;
     @Key
