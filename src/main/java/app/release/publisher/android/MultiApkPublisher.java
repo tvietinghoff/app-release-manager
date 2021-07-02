@@ -2,6 +2,7 @@ package app.release.publisher.android;
 
 import app.release.model.CommandLineArguments;
 import app.release.model.Configuration;
+import app.release.model.FileType;
 import com.google.api.client.json.jackson2.JacksonFactory;
 import com.google.api.client.util.Charsets;
 import com.google.api.services.androidpublisher.model.CountryTargeting;
@@ -45,30 +46,37 @@ public class MultiApkPublisher extends ApkPublisher {
         log.info("ApplicationPublisher base folder is: [{}]", baseFolder);
         log.info("ApplicationPublisher Configuration: [{}]", configuration);
 
-
         for (String flavor : configuration.flavors) {
             log.info("ApplicationPublisher checking configured flavor: [{}]", flavor);
 
-            String apkFileName = configuration.apkFilePattern
+            final String appFileName = configuration.appFilePattern
                     .replace("{version}", configuration.version)
+                    .replace("{fileType}", configuration.fileType.name().toLowerCase(Locale.ROOT))
                     .replace("{flavor}", flavor);
 
-            Path apkFile = baseFolder.resolve(apkFileName).normalize();
-
-            String mappingFileName = configuration.mappingFilePattern
-                    .replace("{version}", configuration.version)
+            final String packageName = configuration.packageNamePattern
                     .replace("{flavor}", flavor);
 
-            Path mappingFile = baseFolder.resolve(mappingFileName).normalize();
+            final Path appFile = baseFolder.resolve(appFileName).normalize();
+            if (!appFile.toFile().isFile()) {
+                log.warn("[{}] file [{}] not found, skipping...", arguments.getFileType().name(), appFile);
+                continue;
+            }
 
-            if (!apkFile.toFile().isFile()) {
-                log.warn("APK file [{}] not found, skipping...", apkFile);
-                continue;
-            }
-            if (!mappingFile.toFile().isFile()) {
-                log.warn("Mapping file [{}] not found, skipping...", mappingFile);
-                continue;
-            }
+            final Path mappingFile;
+
+            if (configuration.mappingFilePattern != null && !configuration.mappingFilePattern.isEmpty()) {
+                final String mappingFileName = configuration.mappingFilePattern
+                        .replace("{version}", configuration.version)
+                        .replace("{flavor}", flavor);
+
+                Path file = baseFolder.resolve(mappingFileName).normalize();
+
+                if (!file.toFile().isFile()) {
+                    log.warn("Mapping file [{}] not found, skipping...", file);
+                    mappingFile = null;
+                } else mappingFile = file;
+            } else mappingFile = null;
 
             CountryTargeting countryTargeting = getCountryTargeting(flavor);
 
@@ -76,14 +84,17 @@ public class MultiApkPublisher extends ApkPublisher {
 
             if (!configuration.unattended) {
                 if (!confirm("Publish %s\nMapping:%s\nCountries: %s\nRelease notes: %s\n\n(Y/N)?",
-                        apkFile, mappingFile, countryTargeting != null ? countryTargeting.getCountries().toString() : "",
+                        appFile, mappingFile, countryTargeting != null ? countryTargeting.getCountries().toString() : "",
                         releaseNotes.toString())) {
                     log.info("Skipped [{}]", flavor);
                     continue;
                 }
             }
             try {
-                publishSingleApk(apkFile, mappingFile, countryTargeting, releaseNotes, configuration.track, configuration.status);
+                publishSingleApp(
+                        packageName, flavor, configuration.version,
+                        appFile, mappingFile, countryTargeting, releaseNotes,
+                        configuration.fileType, configuration.track, configuration.status);
             } catch (Exception e) {
                 if (configuration.abortOnError) throw e;
             }

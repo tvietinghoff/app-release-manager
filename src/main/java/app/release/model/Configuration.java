@@ -17,7 +17,7 @@ public class Configuration {
                 "  releaseNotesByFlavor=" + releaseNotesByFlavor + '\n' +
                 "  releaseNotes='" + releaseNotes + "'\n" +
                 "  baseFolder='" + baseFolder + "'\n" +
-                "  apkFilePattern='" + apkFilePattern + "'\n" +
+                "  apkFilePattern='" + appFilePattern + "'\n" +
                 "  mappingFilePattern='" + mappingFilePattern + "'\n" +
                 "  countries=" + Arrays.toString(countries) + '\n' +
                 "  countriesByFlavor=" + countriesByFlavor + '\n' +
@@ -47,7 +47,11 @@ public class Configuration {
     @Key
     public String baseFolder = null;
     @Key
-    public String apkFilePattern = "de.{flavor}.app-{version}.apk";
+    public String appFilePattern = "de.{flavor}.app-{version}.{fileType}";
+    @Key
+    public FileType fileType = FileType.APK;
+    @Key
+    public String packageNamePattern = "de.{flavor}.app";
     @Key
     public String mappingFilePattern = "de.{flavor}.app-{version}-mapping.txt";
     /**

@@ -13,6 +13,9 @@ public class CommandLineArguments {
     @Option(name = "-packageName", usage = "(optional) Provide with AAB File")
     private String packageName;
 
+    @Option(name = "-versionName", usage = "(optional) Provide with AAB File")
+    private String versionName;
+
     @Option(name = "-file", required = true, usage = "APK Or AAB file to be released, or configuration file with all necessary information")
     private String file;
 
@@ -34,6 +37,9 @@ public class CommandLineArguments {
     @SuppressWarnings("FieldMayBeFinal")
     @Option(name = "status", usage = "(optional) target status of release [draft|completed] ")
     private TrackStatus status = TrackStatus.completed;
+
+    @Option(name = "-fileType", usage = "File type (APK or AAB)")
+    private FileType fileType = FileType.APK;
 
     public String getJsonKeyPath() {
         return jsonKeyPath;
@@ -87,9 +93,15 @@ public class CommandLineArguments {
         return packageName;
     }
 
+    public String getVersionName() {
+        return versionName;
+    }
+
     public String getMappingFile() { return mappingFile; }
 
     public String getCountries() { return countries; }
 
     public TrackStatus getStatus() { return status; }
+
+    public FileType getFileType() { return fileType; }
 }

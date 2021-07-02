@@ -1,6 +1,7 @@
 package app.release.publisher.android;
 
 import app.release.model.CommandLineArguments;
+import app.release.model.FileType;
 import app.release.model.TrackStatus;
 import app.release.publisher.Publisher;
 import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport;
@@ -36,7 +37,6 @@ import java.util.*;
 public class ApkPublisher implements Publisher {
 
     private static final String MIME_TYPE_MAPPING = "application/octet-stream";
-    private static final String MIME_TYPE_APK = "application/vnd.android.package-archive";
     protected final CommandLineArguments arguments;
 
     public ApkPublisher(CommandLineArguments arguments) {
@@ -46,7 +46,7 @@ public class ApkPublisher implements Publisher {
     @Override
     public void publish() throws IOException, GeneralSecurityException {
 
-        Path apkFile = FileSystems.getDefault().getPath(arguments.getFile()).normalize();
+        Path appFile = FileSystems.getDefault().getPath(arguments.getFile()).normalize();
         Path mappingFile = arguments.getMappingFile() == null ? null :
                 FileSystems.getDefault().getPath(arguments.getMappingFile()).normalize();
 
@@ -70,7 +70,10 @@ public class ApkPublisher implements Publisher {
             releaseNotes.add(new LocalizedText().setLanguage(Locale.US.toString()).setText(arguments.getNotes()));
         }
 
-        publishSingleApk(apkFile, mappingFile, countryTargeting, releaseNotes, arguments.getTrackName(), arguments.getStatus());
+        publishSingleApp(
+                arguments.getPackageName(), arguments.getAppName(), arguments.getVersionName(),
+                appFile, mappingFile, countryTargeting, releaseNotes, arguments.getFileType(), arguments.getTrackName(),
+                arguments.getStatus());
     }
 
     protected Collection<LocalizedText> getReleaseNotesFromJson(Path notesFile) throws IOException {
@@ -88,21 +91,37 @@ public class ApkPublisher implements Publisher {
                 .createScoped(Collections.singleton(AndroidPublisherScopes.ANDROIDPUBLISHER));
     }
 
-    protected void publishSingleApk(Path apkFile, Path mappingFile, @Nullable CountryTargeting countryTargeting, List<LocalizedText> releaseNotes, String trackName, TrackStatus status) throws IOException, GeneralSecurityException {
-        // load apk file info
-        log.info("Loading apk file information...");
+    protected void publishSingleApp(
+            String packageName,
+            String applicationName,
+            String versionName,
+            Path appFile,
+            Path mappingFile,
+            @Nullable CountryTargeting countryTargeting,
+            List<LocalizedText> releaseNotes,
+            FileType fileType,
+            String trackName,
+            TrackStatus trackStatus
+    ) throws IOException, GeneralSecurityException {
 
-        ApkFile apkInfo = new ApkFile(apkFile.toFile());
-        ApkMeta apkMeta = apkInfo.getApkMeta();
-        final String applicationName = arguments.getAppName() == null ? apkMeta.getName() : arguments.getAppName();
-        final String packageName = apkMeta.getPackageName();
-        String versionName = apkMeta.getVersionName();
-        log.info("ApplicationPublisher Name: [{}]", apkMeta.getName());
-        log.info("ApplicationPublisher Id: [{}]", apkMeta.getPackageName());
-        log.info("ApplicationPublisher Version Code: [{}]", apkMeta.getVersionCode());
-        log.info("ApplicationPublisher Version Name: [{}]", versionName);
-        apkInfo.close();
-
+        switch (fileType) {
+            case APK: {
+                // load apk file info
+                log.info("Loading apk file information...");
+                ApkFile apkInfo = new ApkFile(appFile.toFile());
+                ApkMeta apkMeta = apkInfo.getApkMeta();
+                log.info("ApplicationPublisher Name: [{}]", apkMeta.getName());
+                log.info("ApplicationPublisher Id: [{}]", apkMeta.getPackageName());
+                log.info("ApplicationPublisher Version Code: [{}]", apkMeta.getVersionCode());
+                log.info("ApplicationPublisher Version Name: [{}]", versionName);
+                apkInfo.close();
+                break;
+            }
+            case AAB:
+                break;
+            default:
+                throw new IllegalStateException("Unexpected value for fileType: " + arguments.getFileType());
+        }
         // init publisher
         log.info("Initialising publisher service...");
         AndroidPublisher publisher = new AndroidPublisher.Builder(
@@ -119,12 +138,26 @@ public class ApkPublisher implements Publisher {
         log.info("Edit created. Id: [{}]", editId);
 
         try {
-            // publish the apk
-            log.info("Uploading apk file...");
-            AbstractInputStreamContent apkContent = new FileContent(MIME_TYPE_APK, apkFile.toFile());
-            Apk apk = publisher.edits().apks().upload(packageName, editId, apkContent).execute();
-            Integer versionCode = apk.getVersionCode();
-            log.info("Apk uploaded. Version Code: [{}]", versionCode);
+            // publish the app
+            log.info("Uploading app file...");
+            AbstractInputStreamContent appContent = new FileContent(fileType.mimeType, appFile.toFile());
+            final Integer versionCode;
+            switch (fileType){
+                case APK:{
+                    final Apk apk = publisher.edits().apks().upload(packageName, editId, appContent).execute();
+                    versionCode = apk.getVersionCode();
+                    break;
+                }
+                case AAB:{
+                    final Bundle bundle = publisher.edits().bundles().upload(packageName, editId, appContent).execute();
+                    versionCode = bundle.getVersionCode();
+                    break;
+                }
+                default:
+                    throw new IllegalStateException("Unexpected value: " + fileType);
+            }
+
+            log.info("App uploaded. Version Code: [{}]", versionCode);
 
             if (mappingFile != null) {
                 log.info("Uploading mapping file...");
@@ -136,7 +169,7 @@ public class ApkPublisher implements Publisher {
 
             // create a release on track
             log.info("Creating a release on track: [{}]", trackName);
-            TrackRelease release = new TrackRelease().setName(versionName).setStatus(status.name())
+            TrackRelease release = new TrackRelease().setName(versionName).setStatus(trackStatus.name())
                     .setVersionCodes(Collections.singletonList((long) versionCode))
                     .setCountryTargeting(countryTargeting)
                     .setReleaseNotes(releaseNotes);
